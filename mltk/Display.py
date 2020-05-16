@@ -3,6 +3,8 @@
 import builtins as __builtin__
 from warnings import warn
 from time import sleep
+from atexit import register as register_exit
+
 from typing import List, Dict, Union, Optional
 
 # Windows does not support curses(essentially the core of this whole thing).
@@ -47,6 +49,7 @@ def _reinstate_print():
         __builtin__.print = _builtin_print
 
 
+@register_exit
 def exit_display():
     # noinspection PyBroadException
     try:
