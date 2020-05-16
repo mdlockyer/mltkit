@@ -84,6 +84,7 @@ class Display(object):
         '_is_active',
         '_is_in_with_block',
         '_notifications',
+        '_static_items',
         '_bars', '_stats',
         '_num_lines',
         '_suppress_print'
@@ -106,6 +107,7 @@ class Display(object):
         self._is_active: bool = False
         self._is_in_with_block: bool = False
         self._notifications: _T_notifications = []
+        self._static_items: List[str] = []
         self._bars: List[str] = []
         self._stats: List[str] = []
         self._num_lines: int = 0
@@ -126,6 +128,11 @@ class Display(object):
             'age': 0,
             'lifespan': lifespan
         })
+
+    def push_static_item(self, value: str):
+        if not self._enabled:
+            return
+        self._static_items.append(value)
 
     def push_progress_bar(self, current: int, total: int, message: Optional[str] = None,
                           length: int = 50) -> None:
@@ -161,7 +168,7 @@ class Display(object):
             self._curses_window.addstr(i, 0, line['message'])
             self._notifications[i]['age'] += 1
         # Add all other lines
-        lines = self._bars + self._stats
+        lines = self._static_items + self._bars + self._stats
         for i, line in enumerate(lines, start=len(self._notifications)):
             self._curses_window.addstr(i, 0, line)
         # Reset attributes
