@@ -196,10 +196,14 @@ class Display(object):
         # syntax. If so, we need to warn the user that
         # things might not work right.
         self._is_in_with_block = True
+        # While we are inside our with block, we suppress
+        # SIGINT to exit keyboard interrupts more gracefully.
+        # We will reset this in `__exit__`
         signal.signal(signal.SIGINT, lambda signum, frame: exit(0))
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        # Restore the builtin Python SIGINT handler
         signal.signal(signal.SIGINT, _builtin_sigint_handler)
         self.exit()
         self._is_in_with_block = False
