@@ -4,6 +4,7 @@ import builtins as __builtin__
 from warnings import warn
 from time import sleep
 from atexit import register as register_exit
+import signal
 
 from typing import List, Dict, Union, Optional
 
@@ -18,6 +19,10 @@ except ImportError:
 # Store a reference to the original `print` function for later.
 # Once we replace it in `_suppress_print`, we can reset it on exit.
 _builtin_print = __builtin__.print
+# Again, we will store a reference to the original Python SIGINT
+# handler. We are going to override this once we enter our `with`
+# block and restore it once __exit__ fires.
+_builtin_sigint_handler = signal.getsignal(signal.SIGINT)
 
 # MARK: Type "abbreviations"
 _T_notifications = List[Dict[str, Union[str, int]]]
@@ -184,9 +189,11 @@ class Display(object):
         # syntax. If so, we need to warn the user that
         # things might not work right.
         self._is_in_with_block = True
+        signal.signal(signal.SIGINT, lambda signum, frame: exit(0))
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        signal.signal(signal.SIGINT, _builtin_sigint_handler)
         self.exit()
         self._is_in_with_block = False
 
