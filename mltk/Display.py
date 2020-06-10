@@ -85,7 +85,8 @@ class Display(object):
         '_is_in_with_block',
         '_notifications',
         '_static_items',
-        '_bars', '_stats',
+        '_bars',
+        '_stats',
         '_num_lines',
         '_suppress_print'
     ]
