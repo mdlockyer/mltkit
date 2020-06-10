@@ -98,8 +98,6 @@ class Display(object):
                  UserWarning, stacklevel=2)
             self._enabled = False
             _DID_WARN_UNSUPPORTED_OS['value'] = True
-        if not self._enabled:
-            return
         # When using this class outside of the context manager "with block"
         # syntax, we are going to warn the user about the potential destruction
         # of their terminal output when incorrectly exiting.
