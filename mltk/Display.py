@@ -67,6 +67,11 @@ def exit_display():
 
 
 def _create_progress_bar(current, total, message, bar_length):
+    if current > total:
+        raise ValueError('Parameter current can not exceed parameter total.')
+    if bar_length < 1:
+        raise ValueError('Expected bar length to be greater than 1, '
+                         f'but got {bar_length} instead.')
     full_block = chr(9608)
     percent_symbol = '%'
     filled_length = int(round(bar_length * current / float(total)))
