@@ -328,7 +328,6 @@ class JobManager(object):
                 pt.notice('There are no jobs available for performing inference')
                 return
             self._query_load_network()
-            self._query_data_input_path()
         else:
             raise ValueError(f'"{self.mode}" is not a valid run mode.')
 
@@ -473,16 +472,6 @@ class JobManager(object):
                 break
             else:
                 pt.notice(f'Please enter a valid network number')
-
-    def _query_data_input_path(self) -> None:
-        if self.active_job is None:
-            return
-        raw_path: str = input('Please provide the path to a video file or image sequence directory: ')
-        data_input_path: Path = Path(raw_path).resolve()
-        if not data_input_path.exists():
-            pt.warn(f'"{data_input_path}" does not point to a file or directory.', tag=False)
-            return
-        self.active_job._input_data_path = data_input_path
 
     @property
     def active_job(self) -> Optional[Job]:
