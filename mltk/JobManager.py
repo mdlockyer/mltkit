@@ -142,9 +142,6 @@ class Checkpoint(FSItemBase):
         super(Checkpoint, self).__init__(path)
         if self._path.is_dir():
             raise IsADirectoryError(f'{self._path} is a directory.')
-        if self._path.suffixes != ['.pth', '.tar']:
-            raise ValueError(f'{self._path} does not point to a file '
-                             'with the correct extension.')
 
     @property
     def path(self) -> Path:
@@ -156,9 +153,6 @@ class Network(FSItemBase):
         super(Network, self).__init__(path)
         if self._path.is_dir():
             raise IsADirectoryError(f'{self._path} is a directory.')
-        if self._path.suffix not in ['.onnx', '.model']:
-            raise ValueError(f'{self._path} does not point to a file '
-                             'with the correct extension.')
 
     @property
     def path(self) -> Path:
