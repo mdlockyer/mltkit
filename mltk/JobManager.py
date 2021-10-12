@@ -196,11 +196,11 @@ class Job(FSItemBase):
         self._selected_network = None
 
     def _make_sub_dirs(self) -> None:
-        makedirs(str(self._checkpoint_dir), exist_ok=True)
-        makedirs(str(self._samples_dir), exist_ok=True)
-        makedirs(str(self._logs_dir), exist_ok=True)
-        makedirs(str(self._network_dir), exist_ok=True)
-        makedirs(str(self._inference_dir), exist_ok=True)
+        self._checkpoint_dir.mkdir(parents=True, exist_ok=True)
+        self._samples_dir.mkdir(parents=True, exist_ok=True)
+        self._logs_dir.mkdir(parents=True, exist_ok=True)
+        self._network_dir.mkdir(parents=True, exist_ok=True)
+        self._inference_dir.mkdir(parents=True, exist_ok=True)
 
     @property
     def dir(self) -> Path:
