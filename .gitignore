@@ -1,6 +1,7 @@
 .idea/
 .DS_Store
 *.sketch
+venv/
 
 # Docs
 docs/build/
