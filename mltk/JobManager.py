@@ -170,20 +170,30 @@ class Job(FSItemBase):
         '_selected_checkpoint',
         '_selected_network'
     ]
+    _checkpoint_dir: Path
+    _samples_dir: Path
+    _logs_dir: Path
+    _network_dir: Path
+    _inference_dir: Path
+
+    _input_data_path: Optional[Path]
+    _selected_checkpoint: Optional[Checkpoint]
+    _selected_network: Optional[Network]
 
     def __init__(self, path: Union[str, Path]):
         super(Job, self).__init__(path)
         if not self._path.is_dir():
             raise NotADirectoryError(f'{self._path} is not a directory.')
-        self._checkpoint_dir: Path = self._path.joinpath('checkpoints')
-        self._samples_dir: Path = self._path.joinpath('samples')
-        self._logs_dir: Path = self._path.joinpath('logs')
-        self._network_dir: Path = self._path.joinpath('networks')
-        self._inference_dir: Path = self._path.joinpath('inference')
+        self._checkpoint_dir = self._path.joinpath('checkpoints')
+        self._samples_dir = self._path.joinpath('samples')
+        self._logs_dir = self._path.joinpath('logs')
+        self._network_dir = self._path.joinpath('networks')
+        self._inference_dir = self._path.joinpath('inference')
+
         self._make_sub_dirs()
-        self._input_data_path: Optional[Path] = None
-        self._selected_checkpoint: Optional[Checkpoint] = None
-        self._selected_network: Optional[Network] = None
+        self._input_data_path = None
+        self._selected_checkpoint = None
+        self._selected_network = None
 
     def _make_sub_dirs(self) -> None:
         makedirs(str(self._checkpoint_dir), exist_ok=True)
