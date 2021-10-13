@@ -366,7 +366,7 @@ class JobManager(object):
         # Job doesn't exist. Try to create it. This will
         # raise if it's not a valid job name.
         if self._active_job is None:
-            _create_job(job_name, self._jobs_dir)
+            self._active_job = _create_job(job_name, self._jobs_dir)
         if not ignore_checkpoints:
             self._query_load_checkpoint()
 
@@ -404,8 +404,7 @@ class JobManager(object):
         while True:
             job_name: str = _query_job_name()
             try:
-                job: Job = _create_job(job_name, self._jobs_dir)
-                self._active_job = job
+                self._active_job = _create_job(job_name, self._jobs_dir)
                 pt.success(f'Created new job titled: {job_name}')
                 break
             except FileExistsError as e:
