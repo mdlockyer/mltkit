@@ -6,7 +6,7 @@ from sys import stdout
 from enum import Enum
 import PrintTags as pt
 
-from typing import Optional, Union, List, Tuple, Type, overload
+from typing import Optional, Union, List, Tuple, Type, overload, Sequence
 
 
 class JobNotAvailableError(Exception):
@@ -72,9 +72,13 @@ def _query_job_name() -> str:
                       tag=False)
 
 
-def _query_mode() -> RunMode:
+def _query_mode(allowed_modes: Optional[Sequence[RunMode]] = None) -> RunMode:
     stdout.write('Which operation mode would you like?\n')
-    mode_members: Tuple[RunMode, ...] = RunMode.list_members()
+    mode_members: Tuple[RunMode, ...]
+    if allowed_modes is None:
+        mode_members = RunMode.list_members()
+    else:
+        mode_members = tuple(allowed_modes)
     for i, mode in enumerate(mode_members):
         value: str = mode.value
         pt.green(f'{i + 1}: {value}')
@@ -170,27 +174,37 @@ class Job(FSItemBase):
         '_selected_checkpoint',
         '_selected_network'
     ]
+    _checkpoint_dir: Path
+    _samples_dir: Path
+    _logs_dir: Path
+    _network_dir: Path
+    _inference_dir: Path
+
+    _input_data_path: Optional[Path]
+    _selected_checkpoint: Optional[Checkpoint]
+    _selected_network: Optional[Network]
 
     def __init__(self, path: Union[str, Path]):
         super(Job, self).__init__(path)
         if not self._path.is_dir():
             raise NotADirectoryError(f'{self._path} is not a directory.')
-        self._checkpoint_dir: Path = self._path.joinpath('checkpoints')
-        self._samples_dir: Path = self._path.joinpath('samples')
-        self._logs_dir: Path = self._path.joinpath('logs')
-        self._network_dir: Path = self._path.joinpath('networks')
-        self._inference_dir: Path = self._path.joinpath('inference')
+        self._checkpoint_dir = self._path.joinpath('checkpoints')
+        self._samples_dir = self._path.joinpath('samples')
+        self._logs_dir = self._path.joinpath('logs')
+        self._network_dir = self._path.joinpath('networks')
+        self._inference_dir = self._path.joinpath('inference')
+
         self._make_sub_dirs()
-        self._input_data_path: Optional[Path] = None
-        self._selected_checkpoint: Optional[Checkpoint] = None
-        self._selected_network: Optional[Network] = None
+        self._input_data_path = None
+        self._selected_checkpoint = None
+        self._selected_network = None
 
     def _make_sub_dirs(self) -> None:
-        makedirs(str(self._checkpoint_dir), exist_ok=True)
-        makedirs(str(self._samples_dir), exist_ok=True)
-        makedirs(str(self._logs_dir), exist_ok=True)
-        makedirs(str(self._network_dir), exist_ok=True)
-        makedirs(str(self._inference_dir), exist_ok=True)
+        self._checkpoint_dir.mkdir(parents=True, exist_ok=True)
+        self._samples_dir.mkdir(parents=True, exist_ok=True)
+        self._logs_dir.mkdir(parents=True, exist_ok=True)
+        self._network_dir.mkdir(parents=True, exist_ok=True)
+        self._inference_dir.mkdir(parents=True, exist_ok=True)
 
     @property
     def dir(self) -> Path:
@@ -273,37 +287,90 @@ class Job(FSItemBase):
         self._selected_network = value
 
 
+def _list_jobs(jobs_dir: Path) -> Optional[List[Job]]:
+
+    """
+    Searches the jobs directory for existing jobs
+    and returns them sorted by most recently used.
+    """
+
+    if not jobs_dir.exists():
+        return
+
+    jobs: List[Job] = []
+    for job_dir in jobs_dir.iterdir():
+        if not job_dir.stem.startswith('.'):
+            job: Job = Job(job_dir)
+            jobs.append(job)
+    # Sort by most recently modified using timestamp
+    if not jobs:
+        return
+    return sorted(jobs, key=lambda x: x.seconds_since_created, reverse=True)
+
+
+def _create_job(name: str, jobs_dir: Path) -> Job:
+    job_dir: Path = jobs_dir.joinpath(name)
+    try:
+        job_dir.mkdir()
+    except FileExistsError:
+        raise FileExistsError(f'A job titled {name} already exists, '
+                              f'please try again')
+    job = Job(job_dir)
+    return job
+
+
 class JobManager(object):
     """
     Handles the directory and file state of a training job.
     """
 
     __slots__ = [
-        'root_jobs_dir',
+        '_jobs_dir',
         '_active_job',
-        'mode',
-        'jobs',
+        '_run_mode',
+        '_jobs',
     ]
+
+    _jobs_dir: Path
+    _active_job: Optional[Job]
+    _run_mode: RunMode
+    _jobs: List[Job]
 
     RunMode: Type[RunMode] = RunMode
 
-    def __init__(self, jobs_dir: Optional[Union[str, Path]] = None, run_mode: Optional[RunMode] = None):
+    def __init__(self,
+                 jobs_dir: Optional[Union[str, Path]] = None,
+                 job_name: Optional[str] = None,
+                 run_mode: Optional[RunMode] = None,
+                 ignore_checkpoints: bool = False):
         if jobs_dir is None:
-            self.root_jobs_dir: Path = Path('./jobs/').resolve()
+            self._jobs_dir = Path('./jobs/').resolve()
         else:
-            self.root_jobs_dir: Path = jobs_dir if isinstance(jobs_dir, Path) else Path(jobs_dir)
-        if not self.root_jobs_dir.exists():
-            makedirs(str(self.root_jobs_dir))
-        elif not self.root_jobs_dir.is_dir():
-            raise NotADirectoryError(f'{self.root_jobs_dir} is not a directory.')
+            self._jobs_dir = jobs_dir if isinstance(jobs_dir, Path) else Path(jobs_dir)
+        if not self._jobs_dir.exists():
+            makedirs(str(self._jobs_dir))
+        elif not self._jobs_dir.is_dir():
+            raise NotADirectoryError(f'{self._jobs_dir} is not a directory.')
 
-        self._active_job: Optional[Job] = None
-        self.jobs: List[Job] = self.list_jobs()
+        self._run_mode = run_mode if run_mode is not None else _query_mode()
+        self._jobs = _list_jobs(self._jobs_dir)
+        self._active_job = None
+        if job_name is not None:
+            self._setup_with_name(job_name, ignore_checkpoints)
+        else:
+            self._setup_with_prompt(ignore_checkpoints)
 
-        self.mode: RunMode = run_mode if run_mode is not None else _query_mode()
-        self._start_prompt()
+    def _setup_with_name(self, job_name: str, ignore_checkpoints: bool) -> None:
+        # See if this job exists. If so, load it up.
+        self._active_job = self.get_job(job_name)
+        # Job doesn't exist. Try to create it. This will
+        # raise if it's not a valid job name.
+        if self._active_job is None:
+            self._active_job = _create_job(job_name, self._jobs_dir)
+        if not ignore_checkpoints:
+            self._query_load_checkpoint()
 
-    def _start_prompt(self) -> None:
+    def _setup_with_prompt(self, ignore_checkpoints: bool) -> None:
 
         """
         Query user regarding the course of action they wish
@@ -311,17 +378,18 @@ class JobManager(object):
         job, or create a new one.
         """
 
-        if self.mode == RunMode.TRAIN:
-            if self.jobs:
+        if self._run_mode == RunMode.TRAIN:
+            if self._jobs:
                 # Query load existing job if jobs exist
                 if _query_yes_no('Would you like to load an existing job?', default='no'):
                     self._query_load_job(message='Available jobs:', must_have_checkpoints=False)
-                    self._query_load_checkpoint()
+                    if not ignore_checkpoints:
+                        self._query_load_checkpoint()
                 else:
                     self._query_create_job()
             else:
                 self._query_create_job()
-        elif self.mode == RunMode.INFERENCE:
+        elif self._run_mode == RunMode.INFERENCE:
             try:
                 self._query_load_job('Available jobs:', must_have_networks=True)
             except JobNotAvailableError:
@@ -329,46 +397,24 @@ class JobManager(object):
                 return
             self._query_load_network()
         else:
-            raise ValueError(f'"{self.mode}" is not a valid run mode.')
+            raise ValueError(f'"{self._run_mode}" is not a valid run mode.')
 
     def _query_create_job(self) -> None:
 
         while True:
             job_name: str = _query_job_name()
-            job_dir: Path = self.root_jobs_dir.joinpath(job_name)
-
             try:
-                makedirs(str(job_dir), exist_ok=False)
-            except FileExistsError:
-                pt.warn(f'A job titled {job_name} already exists, '
-                        f'please try again')
-                continue
+                self._active_job = _create_job(job_name, self._jobs_dir)
+                pt.success(f'Created new job titled: {job_name}')
+                break
+            except FileExistsError as e:
+                pt.warn(e)
 
-            job = Job(job_dir)
-            self._active_job = job
-
-            pt.success(f'Created new job titled: {job_name}')
-            break
-
-    def list_jobs(self) -> Optional[List[Job]]:
-
-        """
-        Searches the jobs directory for existing jobs
-        and returns them sorted by most recently used.
-        """
-
-        if not self.root_jobs_dir.exists():
-            return
-
-        jobs: List[Job] = []
-        for job_dir in self.root_jobs_dir.iterdir():
-            if not job_dir.stem.startswith('.'):
-                job: Job = Job(job_dir)
-                jobs.append(job)
-        # Sort by most recently modified using timestamp
-        if not jobs:
-            return
-        return sorted(jobs, key=lambda x: x.seconds_since_created, reverse=True)
+    def get_job(self, name: str) -> Optional[Job]:
+        if self._jobs is not None:
+            for job in self._jobs:
+                if name == job.name:
+                    return job
 
     @overload
     def _query_load_job(self, message: str):
@@ -392,7 +438,7 @@ class JobManager(object):
         like to load an existing job.
         """
 
-        jobs: List[Job] = self.jobs
+        jobs: List[Job] = self._jobs
         # These two arguments should be given simultaneously. The
         # above overloads for this method should be followed.
         if must_have_checkpoints:
@@ -474,16 +520,30 @@ class JobManager(object):
                 pt.notice(f'Please enter a valid network number')
 
     @property
-    def active_job(self) -> Optional[Job]:
+    def jobs_dir(self) -> Path:
+        return self._jobs_dir
+
+    @property
+    def active_job(self) -> Job:
+        if self._active_job is None:
+            raise ValueError('Found `None` when accessing active job.')
         return self._active_job
 
     @active_job.setter
     def active_job(self, value: Job) -> None:
         did_match: bool = False
-        for job in self.jobs:
+        for job in self._jobs:
             if value.id == job.id:
                 did_match = True
         if not did_match:
             raise ValueError('Attempting to select a job that is not associated '
                              'with this project. This is not allowed')
         self._active_job = value
+
+    @property
+    def run_mode(self) -> RunMode:
+        return self._run_mode
+
+    @property
+    def jobs(self):
+        return self._jobs
