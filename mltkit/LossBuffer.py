@@ -1,3 +1,4 @@
+from __future__ import annotations
 
 from statistics import mean
 from collections import OrderedDict
