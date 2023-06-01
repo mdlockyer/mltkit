@@ -1,12 +1,10 @@
-from __future__ import annotations
-
 from statistics import mean
 from collections import OrderedDict
-from typing import Dict, List, Optional, OrderedDict as T_OrderedDict
+from typing import Dict, List, Optional, OrderedDict as T_OrderedDict, Union
 
 _T_Values = List[float]
 _T_BufferDict = T_OrderedDict[str, _T_Values]
-_T_BufferArg = T_OrderedDict[str, float] | Dict[str, float]
+_T_BufferArg = Union[T_OrderedDict[str, float], Dict[str, float]]
 
 
 class LossBuffer(object):
