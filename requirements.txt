@@ -9,7 +9,7 @@ keyring==23.2.1
 packaging==21.0
 pkginfo==1.7.1
 PrintTags==1.5.1
-Pygments==2.10.0
+Pygments==2.15.0
 pyparsing==2.4.7
 readme-renderer==30.0
 requests==2.26.0
